@@ -2,6 +2,8 @@
 
 namespace Epsi\BIA;
 
+use \Exception;
+
 /**
  * AIB API client
  *
@@ -46,6 +48,8 @@ class Client {
 	 * @param array $params array of key-value post parameters
 	 * @param bool $requireValidSession
 	 * @return \Epsi\BIA\Document
+	 * @throws \Epsi\BIA\ClientException
+	 * @throws \Epsi\BIA\SessionException
 	 */
 	protected function call($method, $page, array $params = [ ], $requireValidSession = true) {
 		// prepare parameters and record request details
@@ -69,12 +73,12 @@ class Client {
 		$errno = curl_errno($this->ch);
 		$this->session->recordResponse($html, $errno);
 		if ($errno) {
-			throw new SessionException("Error requesting HTTP $method $page: " . curl_error($this->ch), $errno);
+			throw new ClientException("Error requesting HTTP $method $page: " . curl_error($this->ch), $errno);
 		}
 
 		// build document from returned html and update session
 		$document = new Document($html);
-		$this->session->updateSession($document, $requireValidSession);
+		$this->session->updateSession($document, $requireValidSession); // throws \Epsi\BIA\SessionException
 
 		return $document;
 	}
@@ -112,9 +116,10 @@ class Client {
 			"challengeDetails.challengeEntered" => substr($phoneNumber, -4),
 			"_finish" => "true",
 		];
-		$this->call("POST", "/inet/roi/login.htm", $params);
+		$this->call("POST", "/inet/roi/login.htm", $params, false);
 		$this->session->forgetLastCallDetails();
 
+		// return if session valid
 		return $this->session->isValid();
 	}
 
@@ -196,3 +201,5 @@ class Client {
 	}
 
 }
+
+class ClientException extends Exception { }

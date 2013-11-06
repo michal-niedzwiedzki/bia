@@ -11,6 +11,14 @@ use \DOMAttr;
 use \DOMXPath;
 use \Exception;
 
+/**
+ * Document returned by host
+ *
+ * Cleans up returned HTML and loads DOM.
+ * Provides handy methods for common search operations.
+ *
+ * @author Michał Rudnicki <michal.rudnicki@epsi.pl>
+ */
 class Document {
 
 	protected $dom;

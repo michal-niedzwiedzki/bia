@@ -1,0 +1,22 @@
+{
+	"name": "Epsi/BIA",
+	"type": "library",
+	"description": "BIA, screen scraping API client for AIB Internet Banking",
+	"keywords": ["api", "client", "aib", "internet banking"],
+	"homepage": "",
+	"license": "LGPL-3",
+	"authors": [
+		{
+			"name": "Michał Rudnicki",
+			"email": "michal.rudnicki@epsi.pl"
+		}
+	],
+	"require": {
+		"php": ">=5.5.0"
+	},
+	"autoload": {
+		"psr-0" : {
+			"Epsi\\BIA\\": "src/"
+		}
+	}
+}
