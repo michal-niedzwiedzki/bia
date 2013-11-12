@@ -84,14 +84,14 @@ class Client {
 	}
 
 	/**
-	 * Log in to AIB Internet Banking and start session
+	 * Start AIB Internet Banking session with registration number and return pin number indices
+	 *
+	 * Returned pin number indices are between 1 and 5, as on AIB Internet Banking web page.
 	 *
 	 * @param int $registrationNumber
-	 * @param string $phoneNumber or last four digits
-	 * @param string 5-digits long PIN number
-	 * @return bool
+	 * @return int[]
 	 */
-	public function logIn($registrationNumber, $phoneNumber, $pin) {
+	public function enterRegistrationNumber($registrationNumber) {
 		// clear session and make the initial call
 		$this->session->clear();
 		$document = $this->call("GET", "/inet/roi/login.htm", [ ], false);
@@ -105,14 +105,29 @@ class Client {
 		$document = $this->call("POST", "/inet/roi/login.htm", $params, false);
 		$this->session->forgetLastCallDetails();
 
-		// make it through pin page
+		// extract pin number indices
 		$indices = $document->getAll("//label[starts-with(@for, 'digit')]/strong/text()[starts-with(., 'Digit')]");
-		array_walk($indices, function (&$s) { $s = (int)str_replace("Digit ", "", $s) - 1; });
+		array_walk($indices, function (&$s) { $s = (int)str_replace("Digit ", "", $s); });
+		return [$indices[0], $indices[1], $indices[2]];
+	}
+
+	/**
+	 * Complete AIB Internet Banking login with pin digits and phone number
+	 *
+	 * Pin number indices must match output returned by Client::enterRegistrationNumber()
+	 *
+	 * @param int digit1 as requested by output from enterRegistrationNumber()
+	 * @param int digit2
+	 * @param int digit3
+	 * @param string $phoneNumber or last four digits
+	 * @return bool
+	 */
+	public function enterPinDigitsAndPhoneNumber($digit1, $digit2, $digit3, $phoneNumber) {
 		$params = [
 			"jsEnabled" => "TRUE",
-			"pacDetails.pacDigit1" => $pin[$indices[0]],
-			"pacDetails.pacDigit2" => $pin[$indices[1]],
-			"pacDetails.pacDigit3" => $pin[$indices[2]],
+			"pacDetails.pacDigit1" => $digit1,
+			"pacDetails.pacDigit2" => $digit2,
+			"pacDetails.pacDigit3" => $digit3,
 			"challengeDetails.challengeEntered" => substr($phoneNumber, -4),
 			"_finish" => "true",
 		];
@@ -121,6 +136,22 @@ class Client {
 
 		// return if session valid
 		return $this->session->isValid();
+	}
+
+	/**
+	 * Log in to AIB Internet Banking
+	 *
+	 * Warning: IT IS NOT ADVISED TO USE THIS METHOD FOR LOGGING IN.
+	 * With this method you are exposing your account details to risk of theft in case of break-in.
+	 *
+	 * @param int $registrationNumber
+	 * @param string $phoneNumber or last four digits
+	 * @param string 5-digits long PIN number
+	 * @return bool
+	 */
+	public function logIn($registrationNumber, $phoneNumber, $pin) {
+		$incides = $this->logInStep1($registrationNumber);
+		return $this->logInStep2($pin[$indices[0] - 1], $pin[$indices[1] - 1], $pin[$indices[2] - 1], $phoneNumber);
 	}
 
 	/**
