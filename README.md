@@ -1,4 +1,4 @@
-BIA - A screen scrapping API client for AIB Internet Banking
+BIA - API client for AIB Internet Banking
 ============================================================
 
 BIA is aiming at creating API client to automate AIB Internet Banking operations.
@@ -22,5 +22,4 @@ Requirements
 * php-tidy
 
 BIA will eventually work with Composer, however for the time being you will have to
-figure out installation yourself.
-
+install it manually.

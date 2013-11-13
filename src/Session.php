@@ -149,7 +149,8 @@ class Session {
 			"cookieJar" => file_get_contents($this->cookieJar),
 			"token" => $this->token,
 		];
-		file_put_contents($file, json_encode($a));
+var_dump($a);
+		file_put_contents($file, json_encode($a, JSON_PRETTY_PRINT) . "\n");
 		return $this;
 	}
 
