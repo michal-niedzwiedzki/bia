@@ -22,6 +22,8 @@ class Client {
 	const NETWORK_O2 = 2;
 	const NETWORK_METEOR = 3;
 	const NETWORK_THREE = 4;
+	const NETWORK_EMOBILE = 5;
+	const NETWORK_TESCO = 6;
 
 	/**
 	 * Session container
@@ -215,8 +217,12 @@ class Client {
 	 * @return int|null
 	 */
 	public function getAccountIndex($account) {
-		empty($this->accounts) or $this->getBalances();
-		return array_search($account, $this->accounts);
+		empty($this->accounts) and $this->getBalances();
+		$index = array_search($account, $this->accounts);
+		if (false === $index) {
+			throw new ClientException("Account not found ($account)");
+		}
+		return $index;
 	}
 
 	/**
@@ -281,8 +287,10 @@ class Client {
 			"iBankFormSubmission" => "true",
 			"_target1" => "true",
 		];
+print_r($params);
 		$document = $this->call("POST", "/inet/roi/topuponline.htm", $params);
-
+		return $document->getDOM()->save("/tmp/last.xml");
+		// //div[@class='aibStyle09']/label[@for='digit']/strong/text()
 	}
 
 }
