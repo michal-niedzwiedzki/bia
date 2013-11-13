@@ -18,7 +18,22 @@ class Client {
 	const PROTOCOL = "https://";
 	const HOST = "aibinternetbanking.aib.ie";
 
+	const NETWORK_VODAFONE = 1;
+	const NETWORK_O2 = 2;
+	const NETWORK_METEOR = 3;
+	const NETWORK_THREE = 4;
+
+	/**
+	 * Session container
+	 * @var /Epsi/BIA/Session
+	 */
 	protected $session;
+
+	/**
+	 * Cached list of accounts mapped to their index
+	 * @var <string>int[]
+	 */
+	protected $accounts = [ ];
 
 	/**
 	 * Constructor
@@ -114,11 +129,11 @@ class Client {
 	/**
 	 * Complete AIB Internet Banking login with pin digits and phone number
 	 *
-	 * Pin number indices must match output returned by Client::enterRegistrationNumber()
+	 * Pin number indices must match output returned by \Epsi\BIA\Client::enterRegistrationNumber()
 	 *
-	 * @param int digit1 as requested by output from enterRegistrationNumber()
-	 * @param int digit2
-	 * @param int digit3
+	 * @param int $digit1
+	 * @param int $digit2
+	 * @param int $digit3
 	 * @param string $phoneNumber or last four digits
 	 * @return bool
 	 */
@@ -177,6 +192,7 @@ class Client {
 			$balance = (float)strtr($balance, ["," => "", " " => "", "\r" => "", "\n" => "", "\t" => ""]);
 			$balances[$account] = $balance;
 		}
+		$this->accounts = array_keys($balances);
 
 		return $balances;
 	}
@@ -193,6 +209,17 @@ class Client {
 	}
 
 	/**
+	 * Return index for given account name
+	 *
+	 * @param string $account name (i.e. "CURRENT-001")
+	 * @return int|null
+	 */
+	public function getAccountIndex($account) {
+		empty($this->accounts) or $this->getBalances();
+		return array_search($account, $this->accounts);
+	}
+
+	/**
 	 * Return statement for account
 	 *
 	 * Resulting array contains hashes with the following fields:
@@ -206,8 +233,7 @@ class Client {
 	 * @return array
 	 */
 	public function getStatement($account) {
-		$accounts = array_keys($this->getBalances());
-		$index = array_search($account, $accounts);
+		$index = $this->getAccountIndex($account);
 		$params = [
 			"index" => $index,
 			"viewAllRecentTransactions" => "recent transactions",
@@ -229,6 +255,34 @@ class Client {
 			];
 		}
 		return $transactions;
+	}
+
+	/**
+	 * Top up mobile number
+	 *
+	 * @param string $account name (i.e. "CURRENT-001")
+	 * @param string $phoneNumber comprising 10 digits only, including 08x prefix
+	 * @param string $network as defined by NETWORK_* consts
+	 * @param int $amount
+	 * @return bool
+	 */
+	public function topUp($account, $phoneNumber, $network, $amount) {
+		$prefix = substr($phoneNumber, 0, 3);
+		$number = substr($phoneNumber, 3);
+		$index = $this->getAccountIndex($account);
+		$params = [
+			"accountSelected" => $index,
+			"mobileNumber.prefix" => $prefix,
+			"mobileNumber.number" => $number,
+			"confirmMobileNumber.prefix" => $prefix,
+			"confirmMobileNumber.number" => $number,
+			"networkSelected" => $network,
+			"topupAmount" => $amount,
+			"iBankFormSubmission" => "true",
+			"_target1" => "true",
+		];
+		$document = $this->call("POST", "/inet/roi/topuponline.htm", $params);
+
 	}
 
 }

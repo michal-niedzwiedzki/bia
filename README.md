@@ -14,3 +14,13 @@ Currently BIA supports the following operations:
 * getting list of accounts
 * getting account statement
 
+Requirements
+============
+
+* PHP 5.5
+* php-curl
+* php-tidy
+
+BIA will eventually work with Composer, however for the time being you will have to
+figure out installation yourself.
+
