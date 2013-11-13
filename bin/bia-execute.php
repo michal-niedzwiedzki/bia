@@ -62,5 +62,8 @@ try {
 	$out = call_user_func_array([$client, API_FUNCTION], $args);
 	fprintf(STDOUT, json_encode($out, JSON_PRETTY_PRINT) . "\n");
 } catch (Exception $e) {
-	fprintf(STDERR, $e->getMessage());
+	fprintf(STDERR, PROGNAME . ": {$e->getMessage()}\n");
 }
+
+// Save session
+$session->save(SESSION_FILE);

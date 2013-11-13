@@ -44,17 +44,6 @@ class Client {
 	 */
 	public function __construct(Session $session) {
 		$this->session = $session;
-		$this->ch = curl_init();
-		$ch = $this->ch;
-		curl_setopt($ch, CURLOPT_COOKIESESSION, true);
-		curl_setopt($ch, CURLOPT_COOKIEJAR, $this->session->getCookieJar());
-		curl_setopt($ch, CURLOPT_COOKIEFILE, $this->session->getCookieJar());
-		curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-		curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-		curl_setopt($ch, CURLOPT_HEADER, false);
-		curl_setopt($ch, CURLOPT_AUTOREFERER, true);
-		curl_setopt($ch, CURLOPT_USERAGENT, "Mozilla/5.0 (X11; U; Linux x86_64; en-US; rv:1.9.2.13) Gecko/20101206 Ubuntu/10.10 (maverick) Firefox/3.6.13");
-		curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
 	}
 
 	/**
@@ -74,28 +63,51 @@ class Client {
 		$this->session->attachSession($params);
 		$this->session->recordRequest($method, $page, $params);
 
-		// make http request and record output
-		$query = http_build_query($params);
+		// configure request options
+		$ch = curl_init();
 		$url = static::PROTOCOL . static::HOST . $page;
+		$query = http_build_query($params);
+		$cookie = $this->session->getCookie();
 		if ($method === "POST") {
-			curl_setopt($this->ch, CURLOPT_POST, 1);
-			curl_setopt($this->ch, CURLOPT_POSTFIELDS, $query);
+			curl_setopt($ch, CURLOPT_POST, 1);
+			curl_setopt($ch, CURLOPT_POSTFIELDS, $query);
 		} else {
 			$query and $url .= "?{$query}";
-			curl_setopt($this->ch, CURLOPT_HTTPGET, true);
+			curl_setopt($ch, CURLOPT_HTTPGET, true);
 		}
-		curl_setopt($this->ch, CURLOPT_URL, $url);
-//		curl_setopt($this->ch, CURLOPT_REFERER, static::PROTOCOL . static::HOST . $page);
-		$html = curl_exec($this->ch);
-		$errno = curl_errno($this->ch);
+		curl_setopt($ch, CURLOPT_URL, $url);
+//		curl_setopt($ch, CURLOPT_REFERER, static::PROTOCOL . static::HOST . $page);
+		$cookie or curl_setopt($ch, CURLOPT_COOKIESESSION, true);
+		curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+		curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+		curl_setopt($ch, CURLOPT_HEADER, false);
+		curl_setopt($ch, CURLOPT_AUTOREFERER, true);
+		curl_setopt($ch, CURLOPT_USERAGENT, "Mozilla/5.0 (X11; U; Linux x86_64; en-US; rv:1.9.2.13) Gecko/20101206 Ubuntu/10.10 (maverick) Firefox/3.6.13");
+		curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+
+		// configure cookies
+		$cookieJar = tempnam(sys_get_temp_dir(), "bia-");
+		file_put_contents($cookieJar, $cookie);
+		curl_setopt($ch, CURLOPT_COOKIEJAR, $cookieJar);
+		curl_setopt($ch, CURLOPT_COOKIEFILE, $cookieJar);
+
+		// make http request and record output
+		$html = curl_exec($ch);
+		$errno = curl_errno($ch);
+		$error = curl_error($ch);
+		curl_close($ch);
+
+		$cookie = file_get_contents($cookieJar);
+		unlink($cookieJar);
+
 		$this->session->recordResponse($html, $errno);
 		if ($errno) {
-			throw new ClientException("Error requesting HTTP $method $page: " . curl_error($this->ch), $errno);
+			throw new ClientException("Error requesting HTTP $method $page: $error", $errno);
 		}
 
-		// build document from returned html and update session
+		// build document from returned html and update session with token and cookie
 		$document = new Document($html);
-		$this->session->updateSession($document, $requireValidSession); // throws \Epsi\BIA\SessionException
+		$this->session->updateSession($document, $cookie, $requireValidSession); // throws \Epsi\BIA\SessionException
 
 		return $document;
 	}
@@ -108,7 +120,7 @@ class Client {
 	 * @param int $registrationNumber
 	 * @return int[]
 	 */
-	public function enterRegistrationNumber($registrationNumber) {
+	public function logInStep1($registrationNumber) {
 		// clear session and make the initial call
 		$this->session->clear();
 		$document = $this->call("GET", "/inet/roi/login.htm", [ ], false);
@@ -131,7 +143,7 @@ class Client {
 	/**
 	 * Complete AIB Internet Banking login with pin digits and phone number
 	 *
-	 * Pin number indices must match output returned by \Epsi\BIA\Client::enterRegistrationNumber()
+	 * Pin number indices must match output returned by \Epsi\BIA\Client::logInStep1()
 	 *
 	 * @param int $digit1
 	 * @param int $digit2
@@ -139,7 +151,7 @@ class Client {
 	 * @param string $phoneNumber or last four digits
 	 * @return bool
 	 */
-	public function enterPinDigitsAndPhoneNumber($digit1, $digit2, $digit3, $phoneNumber) {
+	public function logInStep2($digit1, $digit2, $digit3, $phoneNumber) {
 		$params = [
 			"jsEnabled" => "TRUE",
 			"pacDetails.pacDigit1" => $digit1,
@@ -169,6 +181,19 @@ class Client {
 	public function logIn($registrationNumber, $phoneNumber, $pin) {
 		$incides = $this->logInStep1($registrationNumber);
 		return $this->logInStep2($pin[$indices[0] - 1], $pin[$indices[1] - 1], $pin[$indices[2] - 1], $phoneNumber);
+	}
+
+	/**
+	 * Refreshes session and returns whether alive
+	 *
+	 * @return bool
+	 */
+	public function keepAlive() {
+		$params = [
+			"isFormButtonClicked" => "true",
+		];
+		$document = $this->call("POST", "/inet/roi/accountoverview.htm", $params);
+		return $this->session->isValid();
 	}
 
 	/**
@@ -207,7 +232,8 @@ class Client {
 	 */
 	public function getBalance($account) {
 		$balances = $this->getBalances();
-		return isset($balances[$account]) ? $balances[$account] : null;
+		$this->getAccountIndex($account);
+		return $balances[$account];
 	}
 
 	/**
@@ -264,15 +290,15 @@ class Client {
 	}
 
 	/**
-	 * Top up mobile number
+	 * Prepare for mobile top up
 	 *
 	 * @param string $account name (i.e. "CURRENT-001")
+	 * @param int $amount to top up
 	 * @param string $phoneNumber comprising 10 digits only, including 08x prefix
 	 * @param string $network as defined by NETWORK_* consts
-	 * @param int $amount
-	 * @return bool
+	 * @return int
 	 */
-	public function topUp($account, $phoneNumber, $network, $amount) {
+	public function topUpStep1($account, $amount, $phoneNumber, $network) {
 		$prefix = substr($phoneNumber, 0, 3);
 		$number = substr($phoneNumber, 3);
 		$index = $this->getAccountIndex($account);
@@ -287,10 +313,18 @@ class Client {
 			"iBankFormSubmission" => "true",
 			"_target1" => "true",
 		];
-print_r($params);
 		$document = $this->call("POST", "/inet/roi/topuponline.htm", $params);
-		return $document->getDOM()->save("/tmp/last.xml");
-		// //div[@class='aibStyle09']/label[@for='digit']/strong/text()
+		return $document->getOne("//div[@class='aibStyle09']/label[@for='digit']/strong/text()");
+	}
+
+	/**
+	 * Complete mobile top up
+	 *
+	 * @param int $digit
+	 * @return bool
+	 */
+	public function topUpStep2($digit) {
+		// TODO
 	}
 
 }

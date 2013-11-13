@@ -16,7 +16,6 @@
 /// It is advised to use this script to create session and let web application pick
 /// up session file to avoid hardcoding login details directly in web application.
 /// To prevent session expiry maintain-session.php script can be used.
-///
 
 require __DIR__ . "/../src/Document.php";
 require __DIR__ . "/../src/Session.php";
@@ -37,7 +36,7 @@ $client = new \Epsi\BIA\Client($session);
 // Step 1 - Enter registration number
 fprintf(STDOUT, "Enter registration number: ");
 $registrationNumber = (int)fgets(STDIN);
-$indices = $client->enterRegistrationNumber($registrationNumber);
+$indices = $client->logInStep1($registrationNumber);
 
 // Ask for PIN digits and phone number
 $nth = [1 => "st", 2 => "nd", 3 => "rd", 4 => "th", 5 => "th"];
@@ -50,7 +49,7 @@ fprintf(STDOUT, "Enter 4 last digits of your phone number: ");
 $phoneNumber = (int)fgets(STDIN);
 
 // Step 2 - Enter PIN digits and phone number
-$client->enterPinDigitsAndPhoneNumber($digits[1], $digits[2], $digits[3], $phoneNumber);
+$client->logInStep2($digits[1], $digits[2], $digits[3], $phoneNumber);
 
 // Save session
 $session->save(SESSION_FILE);

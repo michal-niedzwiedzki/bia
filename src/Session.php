@@ -14,9 +14,10 @@ use \Exception;
  */
 class Session {
 
-	protected $cookieJar;
-	protected $isValid = false;
+	protected $cookie = null;
 	protected $token = null;
+
+	protected $isValid = false;
 
 	protected $lastMethod = null;
 	protected $lastPage = null;
@@ -27,14 +28,8 @@ class Session {
 
 	/**
 	 * Constructor
-	 *
-	 * @param string $cookieJar file to store cookies in, default temporary file
-	 * @param string $token csrf token
 	 */
-	public function __construct($cookieJar = null, $token = null) {
-		$this->cookieJar = $cookieJar ? $cookieJar : tempnam(sys_get_temp_dir(), "bia-");
-		$this->token = $token;
-	}
+	public function __construct() { }
 
 	/**
 	 * Indicate if the session was valid at the last call
@@ -46,12 +41,12 @@ class Session {
 	}
 
 	/**
-	 * Return cookie file name
+	 * Return cookie
 	 *
 	 * @return string
 	 */
-	public function getCookieJar() {
-		return $this->cookieJar;
+	public function getCookie() {
+		return $this->cookie;
 	}
 
 	/**
@@ -64,14 +59,14 @@ class Session {
 	}
 
 	/**
-	 * Invalidate the session and empty cookie file
+	 * Invalidate the session
 	 *
 	 * @return \Epsi\BIA\Session
 	 */
 	public function clear() {
 		$this->isValid = false;
+		$this->cookie = null;
 		$this->token = null;
-		file_put_contents($this->cookieJar, "");
 		return $this;
 	}
 
@@ -132,31 +127,43 @@ class Session {
 	 * Update session details extracted from document
 	 *
 	 * @param \Epsi\BIA\Document $document
+	 * @param string $cookie
 	 * @param bool $requireValidSession and throw exception if not valid
 	 * @return \Epsi\BIA\Session
 	 * @throws \Epsi\BIA\SessionException
 	 */
-	public function updateSession(Document $document, $requireValidSession) {
+	public function updateSession(Document $document, $cookie, $requireValidSession) {
 		$token = $document->getOne("//input[@name='transactionToken']/@value");
 		$token and $this->token = $token;
+		$this->cookie = $cookie;
 		$this->isValid = true; // FIXME: dude...
 		// FIXME: throwing exception
 		return $this;
 	}
 
+	/**
+	 * Persist session in a file
+	 *
+	 * @param string $file
+	 * @return \Epsi\BIA\Session
+	 */
 	public function save($file) {
 		$a = [
-			"cookieJar" => file_get_contents($this->cookieJar),
+			"cookie" => $this->cookie,
 			"token" => $this->token,
 		];
-var_dump($a);
 		file_put_contents($file, json_encode($a, JSON_PRETTY_PRINT) . "\n");
 		return $this;
 	}
 
+	/**
+	 * Load session from file
+	 *
+	 * @return \Epsi\BIA\Session
+	 */
 	public function load($file) {
 		$a = json_decode(file_get_contents($file), true);
-		file_put_contents($this->cookieJar, $a["cookieJar"]);
+		$this->cookie = $a["cookie"];
 		$this->token = $a["token"];
 		return $this;
 	}
