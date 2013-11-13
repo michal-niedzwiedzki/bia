@@ -144,6 +144,22 @@ class Session {
 		return $this;
 	}
 
+	public function save($file) {
+		$a = [
+			"cookieJar" => file_get_contents($this->cookieJar),
+			"token" => $this->token,
+		];
+		file_put_contents($file, json_encode($a));
+		return $this;
+	}
+
+	public function load($file) {
+		$a = json_decode(file_get_contents($file), true);
+		file_put_contents($this->cookieJar, $a["cookieJar"]);
+		$this->token = $a["token"];
+		return $this;
+	}
+
 }
 
 class SessionException extends Exception { }
