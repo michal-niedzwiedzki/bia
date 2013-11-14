@@ -67,7 +67,6 @@ class Client {
 		$ch = curl_init();
 		$url = static::PROTOCOL . static::HOST . $page;
 		$query = http_build_query($params);
-		$cookie = $this->session->getCookie();
 		if ($method === "POST") {
 			curl_setopt($ch, CURLOPT_POST, 1);
 			curl_setopt($ch, CURLOPT_POSTFIELDS, $query);
@@ -76,8 +75,6 @@ class Client {
 			curl_setopt($ch, CURLOPT_HTTPGET, true);
 		}
 		curl_setopt($ch, CURLOPT_URL, $url);
-//		curl_setopt($ch, CURLOPT_REFERER, static::PROTOCOL . static::HOST . $page);
-		$cookie or curl_setopt($ch, CURLOPT_COOKIESESSION, true);
 		curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
 		curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 		curl_setopt($ch, CURLOPT_HEADER, false);
@@ -86,6 +83,7 @@ class Client {
 		curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
 
 		// configure cookies
+		$cookie = $this->session->getCookie();
 		$cookieJar = tempnam(sys_get_temp_dir(), "bia-");
 		file_put_contents($cookieJar, $cookie);
 		curl_setopt($ch, CURLOPT_COOKIEJAR, $cookieJar);
@@ -96,7 +94,6 @@ class Client {
 		$errno = curl_errno($ch);
 		$error = curl_error($ch);
 		curl_close($ch);
-
 		$cookie = file_get_contents($cookieJar);
 		unlink($cookieJar);
 
@@ -278,13 +275,18 @@ class Client {
 			foreach ($node->childNodes as $td) {
 				"td" === $td->nodeName and $tds[] = trim($td->textContent);
 			}
-			$transactions[] = [
-				"date" => $tds[0],
-				"description" => $tds[1],
-				"debit" => $tds[2],
-				"credit" => $tds[3],
-				"balance" => $tds[4],
-			];
+			$last = empty($transactions) ? null : count($transactions) - 1;
+			if (null === $last or $tds[2] and $tds[3] or $tds[0] !== $transactions[$last]["date"]) {
+				$transactions[] = [
+					"date" => $tds[0],
+					"description" => $tds[1],
+					"debit" => $tds[2],
+					"credit" => $tds[3],
+					"balance" => $tds[4],
+				];
+			} else {
+				$transactions[$last]["description"] .= "\n{$tds[1]}";
+			}
 		}
 		return $transactions;
 	}

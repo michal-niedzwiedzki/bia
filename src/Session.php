@@ -159,6 +159,7 @@ class Session {
 	/**
 	 * Load session from file
 	 *
+	 * @param string $file
 	 * @return \Epsi\BIA\Session
 	 */
 	public function load($file) {
