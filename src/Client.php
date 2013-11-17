@@ -26,6 +26,12 @@ class Client {
 	const NETWORK_TESCO = 6;
 
 	/**
+	 * Connection client
+	 * @var /Epsi/BIA/Connection
+	 */
+	protected $connection;
+
+	/**
 	 * Session container
 	 * @var /Epsi/BIA/Session
 	 */
@@ -42,7 +48,8 @@ class Client {
 	 *
 	 * @param \Epsi\BIA\Session $session injected from outside
 	 */
-	public function __construct(Session $session) {
+	public function __construct(Connection $connection, Session $session) {
+		$this->connection = $connection;
 		$this->session = $session;
 	}
 
@@ -54,15 +61,17 @@ class Client {
 	 * @param array $params array of key-value post parameters
 	 * @param bool $requireValidSession
 	 * @return \Epsi\BIA\Document
-	 * @throws \Epsi\BIA\ClientException
 	 * @throws \Epsi\BIA\SessionException
 	 */
 	protected function call($method, $page, array $params = [ ], $requireValidSession = true) {
 		// prepare parameters and record request details
 		$method = strtoupper($method);
+		$url = static::PROTOCOL . static::HOST . $page;
+		$cookie = (string)$this->session->getCookie();
 		$this->session->attachSession($params);
 		$this->session->recordRequest($method, $page, $params);
 
+<<<<<<< HEAD
 		// configure request options
 		$ch = curl_init();
 		$url = static::PROTOCOL . static::HOST . $page;
@@ -101,10 +110,15 @@ class Client {
 		if ($errno) {
 			throw new ClientException("Error requesting HTTP $method $page: $error", $errno);
 		}
+=======
+		// make call and record response
+		$html = $this->connection->call($method, $url, $params, $cookie);
+		$this->session->recordResponse($html, $cookie);
+>>>>>>> e5b3602... Separated connection from client, added unit tests
 
-		// build document from returned html and update session with token and cookie
+		// build document from returned html and update session with token
 		$document = new Document($html);
-		$this->session->updateSession($document, $cookie, $requireValidSession); // throws \Epsi\BIA\SessionException
+		$this->session->updateSession($document, $requireValidSession);
 
 		return $document;
 	}

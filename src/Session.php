@@ -22,8 +22,6 @@ class Session {
 	protected $lastMethod = null;
 	protected $lastPage = null;
 	protected $lastParams = [ ];
-
-	protected $lastErrno = null;
 	protected $lastResponse = null;
 
 	/**
@@ -89,12 +87,12 @@ class Session {
 	 * Store response details
 	 *
 	 * @param string $html
-	 * @param int $errno
+	 * @param string $cookie
 	 * @return \Epsi\BIA\Session
 	 */
-	public function recordResponse($html, $errno) {
+	public function recordResponse($html, $cookie) {
 		$this->lastResponse = $html;
-		$this->lastErrno = $errno;
+		$this->cookie = $cookie;
 		return $this;
 	}
 
@@ -107,7 +105,6 @@ class Session {
 		$this->lastMethod = null;
 		$this->lastPage = null;
 		$this->lastParams = [ ];
-		$this->lastErrno = null;
 		$this->lastResponse = null;
 		return $this;
 	}
@@ -127,15 +124,13 @@ class Session {
 	 * Update session details extracted from document
 	 *
 	 * @param \Epsi\BIA\Document $document
-	 * @param string $cookie
 	 * @param bool $requireValidSession and throw exception if not valid
 	 * @return \Epsi\BIA\Session
 	 * @throws \Epsi\BIA\SessionException
 	 */
-	public function updateSession(Document $document, $cookie, $requireValidSession) {
+	public function updateSession(Document $document, $requireValidSession) {
 		$token = $document->getOne("//input[@name='transactionToken']/@value");
 		$token and $this->token = $token;
-		$this->cookie = $cookie;
 		$this->isValid = true; // FIXME: dude...
 		// FIXME: throwing exception
 		return $this;

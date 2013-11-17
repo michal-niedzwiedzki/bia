@@ -13,6 +13,8 @@
 /// Available functions and their parameters are as follows:
 
 require __DIR__ . "/../src/Document.php";
+require __DIR__ . "/../src/Connection.php";
+require __DIR__ . "/../src/RealConnection.php";
 require __DIR__ . "/../src/Session.php";
 require __DIR__ . "/../src/Client.php";
 
@@ -53,9 +55,10 @@ if (count($args) !== ($n = $rm->getNumberOfRequiredParameters())) {
 }
 
 // Create session and client
+$connection = new \Epsi\BIA\RealConnection();
 $session = new \Epsi\BIA\Session();
 $session->load(SESSION_FILE);
-$client = new \Epsi\BIA\Client($session);
+$client = new \Epsi\BIA\Client($connection, $session);
 
 // Execute API function
 try {

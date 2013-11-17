@@ -65,6 +65,7 @@ Should session expire, the returned value will be `false`.
 Now, since the session is initialized and is being refreshed periodically
 web application can tap into it by loading `/tmp/session.json` file:
 
+	$connection = new \Epsi\BIA\RealConnection();
 	$session = new \Epsi\BIA\Session();
 	$session->load("/tmp/session.json");
-	$client = new \Epsi\BIA\Client($session);
+	$client = new \Epsi\BIA\Client($connection, $session);
