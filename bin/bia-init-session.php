@@ -22,6 +22,7 @@ require __DIR__ . "/../src/Connection.php";
 require __DIR__ . "/../src/RealConnection.php";
 require __DIR__ . "/../src/Session.php";
 require __DIR__ . "/../src/Client.php";
+require __DIR__ . "/../src/FormattingHelper.php";
 
 // Check for session file parameter
 if (!isset($argv[1]) or $argv[1] === "-h" or $argv[1] === "--help") {

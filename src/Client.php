@@ -144,12 +144,12 @@ class Client {
 	 * With this method you are exposing your account details to risk of theft in case of break-in.
 	 *
 	 * @param int $registrationNumber
-	 * @param string $phoneNumber or last four digits
 	 * @param string 5-digits long PIN number
+	 * @param string $phoneNumber or last four digits
 	 * @return bool
 	 */
-	public function logIn($registrationNumber, $phoneNumber, $pin) {
-		$incides = $this->logInStep1($registrationNumber);
+	public function logIn($registrationNumber, $pin, $phoneNumber) {
+		$indices = $this->logInStep1($registrationNumber);
 		return $this->logInStep2($pin[$indices[0] - 1], $pin[$indices[1] - 1], $pin[$indices[2] - 1], $phoneNumber);
 	}
 
@@ -249,16 +249,18 @@ class Client {
 				"td" === $td->nodeName and $tds[] = trim($td->textContent);
 			}
 			$last = empty($transactions) ? null : count($transactions) - 1;
-			if (null === $last or $tds[2] and $tds[3] or $tds[0] !== $transactions[$last]["date"]) {
+			$date = FormattingHelper::date($tds[0]);
+			$description = FormattingHelper::text($tds[1]);
+			if (null === $last or $tds[2] and $tds[3] or $date !== FormattingHelper::date($transactions[$last]["date"])) {
 				$transactions[] = [
-					"date" => $tds[0],
-					"description" => $tds[1],
-					"debit" => $tds[2],
-					"credit" => $tds[3],
-					"balance" => $tds[4],
+					"date" => $date,
+					"description" => $description,
+					"debit" => FormattingHelper::money($tds[2]),
+					"credit" => FormattingHelper::money($tds[3]),
+					"balance" => FormattingHelper::money($tds[4]),
 				];
 			} else {
-				$transactions[$last]["description"] .= "\n{$tds[1]}";
+				$transactions[$last]["description"] .= "\n{$description}";
 			}
 		}
 		return $transactions;
@@ -274,8 +276,13 @@ class Client {
 	 * @return int
 	 */
 	public function topUpStep1($account, $amount, $phoneNumber, $network) {
-		$prefix = substr($phoneNumber, 0, 3);
-		$number = substr($phoneNumber, 3);
+		$params = [
+			"isFormButtonClicked" => "true",
+		];
+		$this->call("POST", "/inet/roi/topuponline.htm", $params);
+
+		$prefix = (string)substr((string)$phoneNumber, 0, 3);
+		$number = (string)substr((string)$phoneNumber, 3);
 		$index = $this->getAccountIndex($account);
 		$params = [
 			"accountSelected" => $index,
@@ -289,7 +296,8 @@ class Client {
 			"_target1" => "true",
 		];
 		$document = $this->call("POST", "/inet/roi/topuponline.htm", $params);
-		return $document->getOne("//div[@class='aibStyle09']/label[@for='digit']/strong/text()");
+		$digit = $document->getOne("//div[@class='aibStyle09']/label[@for='digit']/strong/text()");
+		return (int)str_replace("Digit ", "", $digit);
 	}
 
 	/**
@@ -299,7 +307,61 @@ class Client {
 	 * @return bool
 	 */
 	public function topUpStep2($digit) {
-		// TODO
+		throw new \Exception("not implemented");
+		$params = [
+			"_finish" => "true",
+			"_finish.x" => 33,
+			"_finish.y" => 8,
+			"confirmPac.pacDigit" => $digit,
+			"iBankFormSubmission" => "true",			
+		];
+		$document = $this->call("POST", "/inet/roi/topuponline.htm", $params);
+//$document->getDOM()->save("/tmp/last.xml");
+		// TODO: add parsing
+	}
+
+	public function topUp($account, $amount, $phoneNumber, $network, $pin) {
+		$index = $this->topUpStep1();
+		return $this->topUptep2($pin[$index - 1]);
+	}
+
+	/**
+	 * Move funds between own accounts and return PIN digit
+	 *
+	 * @param string $fromAccount
+	 * @param string $toAccount
+	 * @param float $amount
+	 * @param string $fromMessage to appear on sender's statement, default none
+	 * @param string $toMessage to appear on recipient's statement, default none
+	 * @return int
+	 */
+	public function moveFundsStep1($fromAccount, $toAccount, $amount, $fromMessage = "", $toMessage = "") {
+		$params = [
+			"isFormButtonClicked" => "true",
+		];
+		$this->call("POST", "/inet/roi/transfersandpaymentslanding.htm", $params);
+
+		$params = [
+			"iBankFormSubmission" => "true",
+			"selectedPaymentType" => 1,
+		];
+		$this->call("POST", "/inet/roi/transfersandpaymentslanding.htm", $params);
+
+		$params = [
+			"_target1.x" => 57,
+			"_target1.y" => 8,
+			"ccAccounts" => "[]",
+			"iBankFormSubmission" => "true",
+			"selectedFromAccountIndex" => $fromIndex,
+			"selectedToAccountIndex" => $toIndex,
+			"senderReference" => $fromMessage,
+			"receiverReference" => $toMessage,
+			"transferAmount.euro" => floor($amount),
+			"transferAmount.cent" => $amount - floor($amount),
+		];
+		$document = $this->call("POST", "/inet/roi/transfersandpaymentslanding.htm", $params);
+		$digit = $document->getOne("//div[@class='aibStyle09']/label[@for='digit']/strong/text()");
+		return (int)str_replace("Digit ", "", $digit);
 	}
 
 }
