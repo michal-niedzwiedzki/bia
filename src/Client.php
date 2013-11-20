@@ -307,22 +307,20 @@ class Client {
 	 * @return bool
 	 */
 	public function topUpStep2($digit) {
-		throw new \Exception("not implemented");
 		$params = [
 			"_finish" => "true",
 			"_finish.x" => 33,
 			"_finish.y" => 8,
 			"confirmPac.pacDigit" => $digit,
-			"iBankFormSubmission" => "true",			
+			"iBankFormSubmission" => "true",
 		];
 		$document = $this->call("POST", "/inet/roi/topuponline.htm", $params);
-//$document->getDOM()->save("/tmp/last.xml");
-		// TODO: add parsing
+		return "Your top up request has been accepted." === $document->getOne("//h3[text() = 'Your top up request has been accepted.']/text()");
 	}
 
 	public function topUp($account, $amount, $phoneNumber, $network, $pin) {
-		$index = $this->topUpStep1();
-		return $this->topUptep2($pin[$index - 1]);
+		$index = $this->topUpStep1($account, $amount, $phoneNumber, $network);
+		return $this->topUpStep2($pin[$index - 1]);
 	}
 
 	/**
