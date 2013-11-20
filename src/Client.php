@@ -83,7 +83,7 @@ class Client {
 	}
 
 	/**
-	 * Start AIB Internet Banking session with registration number and return pin number indices
+	 * Log in to AIB Internet Banking step 1
 	 *
 	 * Returned pin number indices are between 1 and 5, as on AIB Internet Banking web page.
 	 *
@@ -105,13 +105,13 @@ class Client {
 		$this->session->forgetLastCallDetails();
 
 		// extract pin number indices
-		$indices = $document->getAll("//label[starts-with(@for, 'digit')]/strong/text()[starts-with(., 'Digit')]");
-		array_walk($indices, function (&$s) { $s = (int)str_replace("Digit ", "", $s); });
-		return [$indices[0], $indices[1], $indices[2]];
+		$digits = $document->getAll("//label[starts-with(@for, 'digit')]/strong/text()[starts-with(., 'Digit')]");
+		array_walk($digits, function (&$s) { $s = (int)str_replace("Digit ", "", $s); });
+		return $digits;
 	}
 
 	/**
-	 * Complete AIB Internet Banking login with pin digits and phone number
+	 * Log in to AIB Internet Banking step 2
 	 *
 	 * Pin number indices must match output returned by \Epsi\BIA\Client::logInStep1()
 	 *
@@ -149,8 +149,8 @@ class Client {
 	 * @return bool
 	 */
 	public function logIn($registrationNumber, $pin, $phoneNumber) {
-		$indices = $this->logInStep1($registrationNumber);
-		return $this->logInStep2($pin[$indices[0] - 1], $pin[$indices[1] - 1], $pin[$indices[2] - 1], $phoneNumber);
+		$digits = $this->logInStep1($registrationNumber);
+		return $this->logInStep2($pin[$digits[0] - 1], $pin[$digits[1] - 1], $pin[$digits[2] - 1], $phoneNumber);
 	}
 
 	/**
@@ -167,7 +167,7 @@ class Client {
 	}
 
 	/**
-	 * Return all accounts balances
+	 * Return all balances
 	 *
 	 * @return array
 	 */
@@ -185,8 +185,8 @@ class Client {
 		// clean up strings and floats
 		$balances = [ ];
 		foreach ($b as $account => $balance) {
-			$account = strtr($account, ["\r" => "", "\n" => "", "\t" => ""]);
-			$balance = (float)strtr($balance, ["," => "", " " => "", "\r" => "", "\n" => "", "\t" => ""]);
+			$account = FormattingHelper::text($account);
+			$balance = FormattingHelper::money($balance);
 			$balances[$account] = $balance;
 		}
 		$this->accounts = array_keys($balances);
@@ -210,7 +210,8 @@ class Client {
 	 * Return index for given account name
 	 *
 	 * @param string $account name (i.e. "CURRENT-001")
-	 * @return int|null
+	 * @return int
+	 * @throws \Epsi\BIA\ClientException
 	 */
 	public function getAccountIndex($account) {
 		empty($this->accounts) and $this->getBalances();
@@ -222,7 +223,7 @@ class Client {
 	}
 
 	/**
-	 * Return statement for account
+	 * Return account statement
 	 *
 	 * Resulting array contains hashes with the following fields:
 	 * - "date" formatted as DD/MM/YY
@@ -231,11 +232,11 @@ class Client {
 	 * - "credit" amount added to balance
 	 * - "balance" amount after operation
 	 *
-	 * @param string $account name (i.e. "CURRENT-001")
+	 * @param string|int $account name or index (i.e. "CURRENT-001" or 0)
 	 * @return array
 	 */
 	public function getStatement($account) {
-		$index = $this->getAccountIndex($account);
+		$index = is_int($account) ? $account : $this->getAccountIndex($account);
 		$params = [
 			"index" => $index,
 			"viewAllRecentTransactions" => "recent transactions",
@@ -251,13 +252,16 @@ class Client {
 			$last = empty($transactions) ? null : count($transactions) - 1;
 			$date = FormattingHelper::date($tds[0]);
 			$description = FormattingHelper::text($tds[1]);
-			if (null === $last or $tds[2] and $tds[3] or $date !== FormattingHelper::date($transactions[$last]["date"])) {
+			$debit = FormattingHelper::money($tds[2], null);
+			$credit = FormattingHelper::money($td[3], null);
+			$balance = FormattingHelper::money($td[4], null);
+			if (null === $last or $debit and $credit or $date !== $transactions[$last]["date"]) {
 				$transactions[] = [
 					"date" => $date,
 					"description" => $description,
-					"debit" => FormattingHelper::money($tds[2]),
-					"credit" => FormattingHelper::money($tds[3]),
-					"balance" => FormattingHelper::money($tds[4]),
+					"debit" => $debit,
+					"credit" => $credit,
+					"balance" => $balance,
 				];
 			} else {
 				$transactions[$last]["description"] .= "\n{$description}";
@@ -267,9 +271,9 @@ class Client {
 	}
 
 	/**
-	 * Prepare for mobile top up
+	 * Mobile top up step 1
 	 *
-	 * @param string $account name (i.e. "CURRENT-001")
+	 * @param string $account name or index (i.e. "CURRENT-001" or 0)
 	 * @param int $amount to top up
 	 * @param string $phoneNumber comprising 10 digits only, including 08x prefix
 	 * @param string $network as defined by NETWORK_* consts
@@ -283,7 +287,7 @@ class Client {
 
 		$prefix = (string)substr((string)$phoneNumber, 0, 3);
 		$number = (string)substr((string)$phoneNumber, 3);
-		$index = $this->getAccountIndex($account);
+		$index = is_int($account) ? $account : $this->getAccountIndex($account);
 		$params = [
 			"accountSelected" => $index,
 			"mobileNumber.prefix" => $prefix,
@@ -301,7 +305,7 @@ class Client {
 	}
 
 	/**
-	 * Complete mobile top up
+	 * Mobile top up step 2
 	 *
 	 * @param int $digit
 	 * @return bool
@@ -315,12 +319,22 @@ class Client {
 			"iBankFormSubmission" => "true",
 		];
 		$document = $this->call("POST", "/inet/roi/topuponline.htm", $params);
-		return "Your top up request has been accepted." === $document->getOne("//h3[text() = 'Your top up request has been accepted.']/text()");
+		return (boolean)$document->getOne("//h3[text() = 'Your top up request has been accepted.']/text()");
 	}
 
+	/**
+	 * Mobile top up
+	 *
+	 * @param string $account name or index (i.e. "CURRENT-001" or 0)
+	 * @param int $amount to top up
+	 * @param string $phoneNumber comprising 10 digits only, including 08x prefix
+	 * @param string $network as defined by NETWORK_* consts
+	 * @param int $digit
+	 * @return bool
+	 */
 	public function topUp($account, $amount, $phoneNumber, $network, $pin) {
-		$index = $this->topUpStep1($account, $amount, $phoneNumber, $network);
-		return $this->topUpStep2($pin[$index - 1]);
+		$digit = $this->topUpStep1($account, $amount, $phoneNumber, $network);
+		return $this->topUpStep2($pin[$digit - 1]);
 	}
 
 	/**

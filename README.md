@@ -69,3 +69,9 @@ web application can tap into it by loading `/tmp/session.json` file:
 	$session = new \Epsi\BIA\Session();
 	$session->load("/tmp/session.json");
 	$client = new \Epsi\BIA\Client($connection, $session);
+
+Alternatively, payment processing can be performed on separate machine
+behind restrictive firewall with no inbound connections allowed.
+For this main web application should expose list of transactions to be made
+and payment processing machine would poll for updates periodically.
+Use of encryption is strongly recommended.

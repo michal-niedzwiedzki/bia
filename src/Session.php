@@ -57,6 +57,17 @@ class Session {
 	}
 
 	/**
+	 * Set token
+	 *
+	 * @param string $token
+	 * @return \Epsi\BIA\Session
+	 */
+	public function setToken($token) {
+		$this->token = $token;
+		return $this;
+	}
+
+	/**
 	 * Invalidate the session
 	 *
 	 * @return \Epsi\BIA\Session
@@ -131,8 +142,10 @@ class Session {
 	public function updateSession(Document $document, $requireValidSession) {
 		$token = $document->getOne("//input[@name='transactionToken']/@value");
 		$token and $this->token = $token;
-		$this->isValid = true; // FIXME: dude...
-		// FIXME: throwing exception
+		$this->isValid = $token and !$document->getOne("//div[@class='aibRow errorMessage aibExt63']/p[@class='error']");
+		if ($requireValidSession and !$this->isValid) {
+			throw new SessionException("Expected valid session");
+		}
 		return $this;
 	}
 
