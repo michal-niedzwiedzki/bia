@@ -191,4 +191,65 @@ final class ClientTest extends PHPUnit_Framework_TestCase {
 		$this->assertTrue($ok);
 	}
 
+	/**
+	 * @test
+	 */
+	public function getStatement() {
+		$connection = $this->getMock("\Epsi\BIA\Connection");
+		$connection->expects($this->once())
+			->method("call")
+			->with(
+				$this->equalTo("POST"),
+				$this->equalTo("https://aibinternetbanking.aib.ie/inet/roi/statement.htm"),
+				$this->equalTo([
+					"index" => 0,
+					"viewAllRecentTransactions" => "recent transactions",
+					"transactionToken" => self::TOKEN,
+				]),
+				$this->isType("string")
+			)
+			->will($this->returnValue(file_get_contents(__DIR__ . "/mocks/statement.htm")));
+
+		$client = new Client($connection, $this->session);
+		$actual = $client->getStatement(0);
+		$expected = [
+			[
+				"date" => "10/10/13",
+				"description" => "VDP-TESCO STORES S",
+				"debit" => 11.92,
+				"credit" => null,
+				"balance" => 994.59,
+			],
+			[
+				"date" => "21/10/13",
+				"description" => "VDP-MARKS & SPENCE",
+				"debit" => null,
+				"credit" => 16,
+				"balance" => 769.27,
+			],
+			[
+				"date" => "22/10/13",
+				"description" => "VDP-RYANAIR II",
+				"debit" => 273.99,
+				"credit" => null,
+				"balance" => null,
+			],
+			[
+				"date" => "01/11/13",
+				"description" => "VDP-Amazon *Mktplc\n0.833982",
+				"debit" => 59.09,
+				"credit" => null,
+				"balance" => null,
+			],
+			[
+				"date" => "14/11/13",
+				"description" => "14NOV13 TIME 17:55",
+				"debit" => null,
+				"credit" => null,
+				"balance" => 1818.41,
+			],
+		];
+		$this->assertEquals($expected, $actual);
+	}
+
 }

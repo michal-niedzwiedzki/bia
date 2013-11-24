@@ -48,7 +48,7 @@ class RealConnection implements Connection {
 		unlink($cookieJar);
 
 		if ($errno) {
-			throw new RealConnectionException("Error requesting HTTP $method $page: $error", $errno);
+			throw new RealConnectionException("Error requesting HTTP $method $url: $error", $errno);
 		}
 
 		return $html;

@@ -20,7 +20,9 @@ class FormattingHelper {
 	}
 
 	public static function money($s) {
-		return (float)str_replace(",", "", trim($s, " \t\r\n"));
+		return ("" === $s or null === $s)
+			? null
+			: (float)str_replace(",", "", trim($s, " \t\r\n"));
 	}
 
 }

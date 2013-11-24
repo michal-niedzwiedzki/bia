@@ -247,14 +247,14 @@ class Client {
 		foreach ($list as $node) {
 			$tds = [ ];
 			foreach ($node->childNodes as $td) {
-				"td" === $td->nodeName and $tds[] = trim($td->textContent);
+				"TD" === strtoupper($td->nodeName) and $tds[] = trim($td->textContent);
 			}
 			$last = empty($transactions) ? null : count($transactions) - 1;
 			$date = FormattingHelper::date($tds[0]);
 			$description = FormattingHelper::text($tds[1]);
 			$debit = FormattingHelper::money($tds[2], null);
-			$credit = FormattingHelper::money($td[3], null);
-			$balance = FormattingHelper::money($td[4], null);
+			$credit = FormattingHelper::money($tds[3], null);
+			$balance = FormattingHelper::money($tds[4], null);
 			if (null === $last or $debit and $credit or $date !== $transactions[$last]["date"]) {
 				$transactions[] = [
 					"date" => $date,
