@@ -233,9 +233,10 @@ class Client {
 	 * - "balance" amount after operation
 	 *
 	 * @param string|int $account name or index (i.e. "CURRENT-001" or 0)
+	 * @param boolean $raw output without transaction grouping, default false (do apply transaction grouping)
 	 * @return array
 	 */
-	public function getStatement($account) {
+	public function getStatement($account, $raw = false) {
 		$index = is_int($account) ? $account : $this->getAccountIndex($account);
 		$params = [
 			"index" => $index,
@@ -255,7 +256,7 @@ class Client {
 			$debit = FormattingHelper::money($tds[2], null);
 			$credit = FormattingHelper::money($tds[3], null);
 			$balance = FormattingHelper::money($tds[4], null);
-			if (null === $last or $debit and $credit or $date !== $transactions[$last]["date"]) {
+			if ($raw or null === $last or $debit or $credit or $date !== $transactions[$last]["date"]) {
 				$transactions[] = [
 					"date" => $date,
 					"description" => $description,
