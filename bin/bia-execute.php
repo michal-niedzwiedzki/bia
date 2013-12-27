@@ -43,15 +43,15 @@ define("API_FUNCTION", array_shift($args));
 // Inspect API function
 $rm = new ReflectionMethod("\Epsi\BIA\Client", API_FUNCTION);
 if (0 === strpos(API_FUNCTION, "__")) {
-	fprintf(STDERR, PROGNAME . ": Magic methods are not valid API functions");
+	fprintf(STDERR, PROGNAME . ": Magic methods are not valid API functions\n");
 	exit(1);
 }
 if (!$rm->isPublic()) {
-	fprintf(STDERR, PROGNAME . ": Only public methods are valid API functions");
+	fprintf(STDERR, PROGNAME . ": Only public methods are valid API functions\n");
 	exit(2);
 }
 if (count($args) !== ($n = $rm->getNumberOfRequiredParameters())) {
-	fprintf(STDERR, PROGNAME . ": This function requires $n parameters");
+	fprintf(STDERR, PROGNAME . ": This function requires $n parameters\n");
 	exit(3);
 }
 

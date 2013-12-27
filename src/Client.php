@@ -339,7 +339,9 @@ class Client {
 	}
 
 	/**
-	 * Move funds between own accounts and return PIN digit
+	 * Move funds between own accounts step 1
+	 *
+	 * Returns PIN digit to be fed into step 2.
 	 *
 	 * @param string $fromAccount
 	 * @param string $toAccount
@@ -349,6 +351,9 @@ class Client {
 	 * @return int
 	 */
 	public function moveFundsStep1($fromAccount, $toAccount, $amount, $fromMessage = "", $toMessage = "") {
+		$fromIndex = is_int($fromAccount) ? $fromAccount : $this->getAccountIndex($fromAccount);
+		$toIndex = is_int($toAccount) ? $toAccount : $this->getAccountIndex($toAccount);
+
 		$params = [
 			"isFormButtonClicked" => "true",
 		];
@@ -375,6 +380,24 @@ class Client {
 		$document = $this->call("POST", "/inet/roi/transfersandpaymentslanding.htm", $params);
 		$digit = $document->getOne("//div[@class='aibStyle09']/label[@for='digit']/strong/text()");
 		return (int)str_replace("Digit ", "", $digit);
+	}
+
+	/**
+	 * Move funds between own accounts step 2
+	 *
+	 * @param int $digit
+	 * @return bool
+	 */
+	public function moveFundsStep2($digit) {
+		$params = [
+			"_finish" => "true",
+			"_finish.x" => 40,
+			"_finish.y" => 9,
+			"confirmPac.pacDigit" => $digit,
+			"iBankFormSubmission" => "true",
+		];
+		$document = $this->call("POST", "/inet/roi/fundstransferownaccounts.htm", $params);
+		return (boolean)$document->getOne("//h3[text() = 'Your funds have been transferred.']/text()");
 	}
 
 }
